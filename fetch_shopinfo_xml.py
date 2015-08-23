@@ -89,6 +89,7 @@ def get_shopinfo(shopinfo_url):
         try:
             shopinfo = Shopinfo(shopinfo_xml)
             print(shopinfo.name)
+            print(shopinfo.mappings)
         except ParseError:
             print('parse_error: {}'.format(shopinfo_url))
         except AttributeError:
