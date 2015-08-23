@@ -66,6 +66,8 @@ def get_shopinfo_xml_from_url(shopinfo_url):
         print('invalid schema: {}'.format(shopinfo_url))
     except requests.exceptions.TooManyRedirects:
         print('too many redirects: {}'.format(shopinfo_url))
+    except requests.exceptions.InvalidURL:
+        print('invalid url: {}'.format(shopinfo_url))
     return content
 
 
@@ -95,7 +97,7 @@ def get_shopinfo(shopinfo_url):
 
 
 def main(args):
-    Parallel(n_jobs=10)(delayed(get_shopinfo)(su)
+    Parallel(n_jobs=20)(delayed(get_shopinfo)(su)
                         for su in shopinfo_url_generator())
 
 
