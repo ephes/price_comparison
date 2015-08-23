@@ -27,6 +27,16 @@ class Shopinfo(object):
             column_type = mapping.attrib['type']
             cols.append((column_num, column_name, column_type))
         return cols
+
+    @property
+    def has_ean(self):
+        ean = False
+        for count, name, ctype in self.mappings:
+            if ctype == 'ean':
+                ean = True
+            if name.lower() == 'ean':
+                ean = True
+        return ean
     
     @property
     def csv_url(self):

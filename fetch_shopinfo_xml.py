@@ -88,8 +88,10 @@ def get_shopinfo(shopinfo_url):
     if shopinfo_xml is not None:
         try:
             shopinfo = Shopinfo(shopinfo_xml)
-            print(shopinfo.name)
-            print(shopinfo.mappings)
+            if shopinfo.has_ean:
+                print('has_ean: {}'.format(shopinfo_url))
+            #print(shopinfo.name)
+            #print(shopinfo.mappings)
         except ParseError:
             print('parse_error: {}'.format(shopinfo_url))
         except AttributeError:
@@ -98,7 +100,7 @@ def get_shopinfo(shopinfo_url):
 
 
 def main(args):
-    Parallel(n_jobs=20)(delayed(get_shopinfo)(su)
+    Parallel(n_jobs=3)(delayed(get_shopinfo)(su)
                         for su in shopinfo_url_generator())
 
 
