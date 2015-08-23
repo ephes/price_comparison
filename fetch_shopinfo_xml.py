@@ -100,7 +100,7 @@ def get_shopinfo(shopinfo_url):
 
 
 def main(args):
-    Parallel(n_jobs=3)(delayed(get_shopinfo)(su)
+    Parallel(n_jobs=1)(delayed(get_shopinfo)(su)
                         for su in shopinfo_url_generator())
 
 

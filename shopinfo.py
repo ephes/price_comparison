@@ -21,6 +21,9 @@ class Shopinfo(object):
     def mappings(self):
         cols = []
         mappings = self.tabular.find('Mappings')
+        if mappings is None:
+            # sometimes mappings is None
+            return cols
         for mapping in mappings:
             column_num = int(mapping.attrib['column'])
             column_name = mapping.attrib['columnName']
