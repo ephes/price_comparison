@@ -8,7 +8,10 @@ import requests
 
 from io import StringIO
 from joblib import Memory
+from joblib import Parallel, delayed
+
 from urllib.parse import unquote
+from xml.etree.ElementTree import ParseError
 
 from shopinfo import Shopinfo
 
@@ -51,24 +54,49 @@ def get_shopinfo_urls_from_page(elmar_url):
 
 @memory.cache
 def get_shopinfo_xml_from_url(shopinfo_url):
-    r = requests.get(shopinfo_url)
-    return r.content
+    content = None
+    try:
+        r = requests.get(shopinfo_url)
+        if r.status_code == requests.codes.ok:
+            if len(r.content) > 0:
+                content = r.content
+    except requests.exceptions.ConnectionError:
+        print('connection aborted: {}'.format(shopinfo_url))
+    except requests.exceptions.InvalidSchema:
+        print('invalid schema: {}'.format(shopinfo_url))
+    except requests.exceptions.TooManyRedirects:
+        print('too many redirects: {}'.format(shopinfo_url))
+    return content
 
 
-def main(args):
+def shopinfo_url_generator():
+    num = 0
     for elmar_url in generate_elmar_urls(4633, 50):
         shopinfo_urls = get_shopinfo_urls_from_page(elmar_url)
         for shopinfo_url in shopinfo_urls:
-            shopinfo_xml = get_shopinfo_xml_from_url(shopinfo_url)
-            print(shopinfo_xml)
+            print('shopinfo_url num: {}'.format(num))
+            num += 1
+            yield shopinfo_url
+
+
+def get_shopinfo(shopinfo_url):
+    shopinfo = None
+    shopinfo_xml = get_shopinfo_xml_from_url(shopinfo_url)
+    #print(shopinfo_xml)
+    if shopinfo_xml is not None:
+        try:
             shopinfo = Shopinfo(shopinfo_xml)
             print(shopinfo.name)
-        #r = requests.get(url)
-        #fname = shopinfo_url.replace('http://', '').replace('/', '_')
-        #with open('shopinfo/{}'.format(fname), 'w') as sfile:
-        #    sfile.write(r.content)
-        #except Exception:
-        #    print('broken shopinfo: {}'.format(shopinfo_url))
+        except ParseError:
+            print('parse_error: {}'.format(shopinfo_url))
+        except AttributeError:
+            print('root node is None: {}'.format(shopinfo_url))
+    return shopinfo
+
+
+def main(args):
+    Parallel(n_jobs=10)(delayed(get_shopinfo)(su)
+                        for su in shopinfo_url_generator())
 
 
 if __name__ == '__main__':
