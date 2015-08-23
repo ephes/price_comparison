@@ -6,10 +6,11 @@ import sys
 
 import requests
 
+from io import StringIO
 from joblib import Memory
 from urllib.parse import unquote
 
-from .shopinfo import Shopinfo
+from shopinfo import Shopinfo
 
 memory = Memory(cachedir='cache')
 
@@ -37,8 +38,9 @@ def get_shopinfo_urls_from_page(elmar_url):
     line_pattern = re.compile('a.target.*counter.*home')
     url_pattern = re.compile(r'redirect=(?P<url>http.*)&amp;rid=2"')
     shopinfo_urls = []
-    r = requests.get(url)
-    for line in r.content:
+    r = requests.get(elmar_url)
+    print(r.status_code)
+    for line in StringIO(r.content.decode('utf8')):
         line = line.rstrip()
         m = line_pattern.search(line)
         if m is not None:
@@ -57,8 +59,10 @@ def main(args):
     for elmar_url in generate_elmar_urls(4633, 50):
         shopinfo_urls = get_shopinfo_urls_from_page(elmar_url)
         for shopinfo_url in shopinfo_urls:
-            shopinfo_xml = get_shopinfo_xml_form_url(shopinfo_url)
+            shopinfo_xml = get_shopinfo_xml_from_url(shopinfo_url)
+            print(shopinfo_xml)
             shopinfo = Shopinfo(shopinfo_xml)
+            print(shopinfo.name)
         #r = requests.get(url)
         #fname = shopinfo_url.replace('http://', '').replace('/', '_')
         #with open('shopinfo/{}'.format(fname), 'w') as sfile:
