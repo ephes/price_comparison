@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 class Shopinfo(object):
     def __init__(self, shopinfo):
         self.root = ET.fromstring(shopinfo)
+        if self.root is None:
+            return None
         
     @property
     def name(self):
@@ -34,20 +36,45 @@ class Shopinfo(object):
     @property
     def has_ean(self):
         ean = False
-        for count, name, ctype in self.mappings:
-            if ctype == 'ean':
-                ean = True
-            if name.lower() == 'ean':
-                ean = True
+        try:
+            for count, name, ctype in self.mappings:
+                if ctype == 'ean':
+                    ean = True
+                if name.lower() == 'ean':
+                    ean = True
+        except AttributeError:
+            pass
         return ean
     
     @property
     def csv_url(self):
-        return self.tabular.find('CSV/Url').text
+        csv_url = None
+        try:
+            csv_url = self.tabular.find('CSV/Url').text
+        except AttributeError:
+            pass
+        return csv_url
+
+    @property
+    def csv_delimiter(self):
+        schars = self.tabular.find('CSV/SpecialCharacters').attrib
+        return schars['delimiter']
+
+    @property
+    def csv_lineend(self):
+        schars = self.tabular.find('CSV/SpecialCharacters').attrib
+        return schars.get('lineend')
     
     @property
     def product_count(self):
-        return int(self.root.find(".//Categories/TotalProductCount").text)
+        product_count = None
+        try:
+            product_count = int(
+                self.root.find(".//Categories/TotalProductCount").text
+            )
+        except AttributeError:
+            pass
+        return product_count
     
     @property
     def categories(self):

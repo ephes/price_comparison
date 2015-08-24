@@ -76,7 +76,7 @@ def shopinfo_url_generator():
     for elmar_url in generate_elmar_urls(4633, 50):
         shopinfo_urls = get_shopinfo_urls_from_page(elmar_url)
         for shopinfo_url in shopinfo_urls:
-            print('shopinfo_url num: {}'.format(num))
+            # print('shopinfo_url num: {}'.format(num))
             num += 1
             yield shopinfo_url
 
@@ -88,10 +88,6 @@ def get_shopinfo(shopinfo_url):
     if shopinfo_xml is not None:
         try:
             shopinfo = Shopinfo(shopinfo_xml)
-            if shopinfo.has_ean:
-                print('has_ean: {}'.format(shopinfo_url))
-            #print(shopinfo.name)
-            #print(shopinfo.mappings)
         except ParseError:
             print('parse_error: {}'.format(shopinfo_url))
         except AttributeError:
@@ -100,8 +96,24 @@ def get_shopinfo(shopinfo_url):
 
 
 def main(args):
-    Parallel(n_jobs=1)(delayed(get_shopinfo)(su)
-                        for su in shopinfo_url_generator())
+    all_shopinfo = Parallel(n_jobs=2)(
+        delayed(get_shopinfo)(su) for su in shopinfo_url_generator())
+    num = 0
+    shopinfo_nums = []
+    for shopinfo in all_shopinfo:
+        if shopinfo is not None and shopinfo.has_ean:
+            try:
+                if shopinfo.product_count is not None:
+                    num += shopinfo.product_count
+                    shopinfo_nums.append((shopinfo.product_count, shopinfo.name))
+                print('name: {} products: {} csv_url: {} delimiter: <{}> lineend: <{}>'.format(shopinfo.name, shopinfo.product_count, shopinfo.csv_url, shopinfo.csv_delimiter, shopinfo.csv_lineend))
+#            except AttributeError:
+#                pass
+            except ParseError:
+                pass
+    for pnum, name in sorted(shopinfo_nums):
+        print(pnum, name)
+    print(num)
 
 
 if __name__ == '__main__':
