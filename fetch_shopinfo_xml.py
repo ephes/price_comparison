@@ -56,7 +56,7 @@ def get_shopinfo_urls_from_page(elmar_url):
 def get_shopinfo_xml_from_url(shopinfo_url):
     content = None
     try:
-        r = requests.get(shopinfo_url)
+        r = requests.get(shopinfo_url, timeout=10)
         if r.status_code == requests.codes.ok:
             if len(r.content) > 0:
                 content = r.content
@@ -73,7 +73,8 @@ def get_shopinfo_xml_from_url(shopinfo_url):
 
 def shopinfo_url_generator():
     num = 0
-    for elmar_url in generate_elmar_urls(4633, 50):
+    #for elmar_url in generate_elmar_urls(4633, 50):
+    for elmar_url in generate_elmar_urls(100, 50):
         shopinfo_urls = get_shopinfo_urls_from_page(elmar_url)
         for shopinfo_url in shopinfo_urls:
             # print('shopinfo_url num: {}'.format(num))
@@ -95,10 +96,11 @@ def get_shopinfo(shopinfo_url):
     return shopinfo
 
 
-def main(args):
-    all_shopinfo = Parallel(n_jobs=2)(
+def get_shops_with_ean():
+    all_shopinfo = Parallel(n_jobs=8)(
         delayed(get_shopinfo)(su) for su in shopinfo_url_generator())
     num = 0
+    ean_shopinfos = []
     shopinfo_nums = []
     for shopinfo in all_shopinfo:
         if shopinfo is not None and shopinfo.has_ean:
@@ -106,14 +108,25 @@ def main(args):
                 if shopinfo.product_count is not None:
                     num += shopinfo.product_count
                     shopinfo_nums.append((shopinfo.product_count, shopinfo.name))
+                    ean_shopinfos.append(shopinfo)
                 print('name: {} products: {} csv_url: {} delimiter: <{}> lineend: <{}>'.format(shopinfo.name, shopinfo.product_count, shopinfo.csv_url, shopinfo.csv_delimiter, shopinfo.csv_lineend))
-#            except AttributeError:
-#                pass
             except ParseError:
                 pass
     for pnum, name in sorted(shopinfo_nums):
         print(pnum, name)
     print(num)
+    return ean_shopinfos
+
+
+def fetch_feed_csv(shopinfo):
+    shopinfo.download_feed_csv()
+    return shopinfo
+
+
+def main(args):
+    ean_shopinfos = get_shops_with_ean()
+    print(len(ean_shopinfos))
+    ean_shopinfos = [fetch_feed_csv(shopinfo) for shopinfo in ean_shopinfos]
 
 
 if __name__ == '__main__':

@@ -1,11 +1,17 @@
+import os
+import requests
 import xml.etree.ElementTree as ET
+
+from hashlib import md5
 
 
 class Shopinfo(object):
-    def __init__(self, shopinfo):
+    def __init__(self, shopinfo, feed_dir='feeds'):
         self.root = ET.fromstring(shopinfo)
         if self.root is None:
             return None
+        self.feed_dir = feed_dir
+        self.feed_path = None
         
     @property
     def name(self):
@@ -85,3 +91,18 @@ class Shopinfo(object):
             mapping = category.find('Mapping').text
             categories.append((name, mapping, int(count)))
         return categories
+
+    def download_feed_csv(self):
+        if not os.path.exists(self.feed_dir):
+            os.makedirs(self.feed_dir)
+        feed_name = '{}.csv'.format(
+            md5(self.csv_url.encode('utf8')).hexdigest())
+        feed_path = os.path.join(self.feed_dir, feed_name)
+        r = requests.get(self.csv_url, stream=True)
+        with open(feed_path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk: # filter out keep-alive new chunks
+                    f.write(chunk)
+                    f.flush()
+        self.feed_path = feed_path
+        return self.feed_path
