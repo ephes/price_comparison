@@ -110,6 +110,8 @@ class Shopinfo(object):
         feed_name = '{}.csv'.format(
             md5(self.csv_url.encode('utf8')).hexdigest())
         feed_path = os.path.join(self.feed_dir, feed_name)
+        if os.path.exists(feed_path):
+            return feed_path
         r = requests.get(self.csv_url, stream=True)
         with open(feed_path, 'wb') as f:
             for chunk in r.iter_content(chunk_size=1024):

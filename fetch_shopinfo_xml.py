@@ -126,7 +126,8 @@ def fetch_feed_csv(shopinfo):
 def main(args):
     ean_shopinfos = get_shops_with_ean()
     print(len(ean_shopinfos))
-    ean_shopinfos = [fetch_feed_csv(shopinfo) for shopinfo in ean_shopinfos]
+    ean_shopinfos = Parallel(n_jobs=8)(
+        delayed(fetch_feed_csv)(shopinfo) for shopinfo in ean_shopinfos)
 
 
 if __name__ == '__main__':
