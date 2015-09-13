@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import xml.etree.ElementTree as ET
 
@@ -12,6 +13,17 @@ class Shopinfo(object):
             return None
         self.feed_dir = feed_dir
         self.feed_path = None
+        self.shopinfo_str = shopinfo
+
+    @property
+    def encoding(self):
+        lines = self.shopinfo_str.split(b'\n')
+        p = re.compile(b'encoding="(?P<encoding>.*)"')
+        m = p.search(lines[0])
+        print(lines[0], m)
+        if m is not None:
+            return m.group('encoding').decode()
+        return None
         
     @property
     def name(self):
@@ -24,7 +36,7 @@ class Shopinfo(object):
     @property
     def tabular(self):
         return self.root.find('.//Tabular')
-    
+
     @property    
     def mappings(self):
         cols = []

@@ -2,4 +2,3 @@ ipython
 requests
 joblib
 pandas
-chardet
