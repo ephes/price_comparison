@@ -71,7 +71,6 @@ class Shopinfo(object):
         lines = self.shopinfo_str.split(b'\n')
         p = re.compile(b'encoding="(?P<encoding>.*?)"')
         m = p.search(lines[0])
-        print(lines[0], m)
         if m is not None:
             return m.group('encoding').decode()
         return None
@@ -175,7 +174,13 @@ class Shopinfo(object):
                     f.flush()
         return self.feed_path
 
-    def get_dataframe(self):
+    @property
+    def dataframe(self):
+        if not os.path.exists(self.feed_path):
+            if not os.path.exists(self.feed_dir):
+                os.makedirs(self.feed_dir)
+            self.download_feed_csv()
+
         df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
                          encoding=self.encoding)
         df.rename(columns=self._column_lookup, inplace=True)
