@@ -1,4 +1,4 @@
 ipython
 requests
-joblib
 pandas
+scikit-learn

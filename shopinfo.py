@@ -1,13 +1,16 @@
 import os
 import re
-import requests
-import pandas as pd
-import xml.etree.ElementTree as ET
 
+from queue import Queue
+from threading import Thread
+import xml.etree.ElementTree as ET
 from hashlib import md5
 
+import requests
+import pandas as pd
 
-class Shopinfo(object):
+
+class Shopinfo:
     def __init__(self, url, feed_dir='feeds',
                  shopinfo_dir='shopinfos'):
         self.url = url
@@ -24,10 +27,10 @@ class Shopinfo(object):
         return feed_path
 
     @property
-    def shopinfo_path(self):
-        shopinfo_name = '{}.csv'.format(self._get_hash())
-        shopinfo_path = os.path.join(self.shopinfo_dir, shopinfo_name)
-        return shopinfo_path
+    def path(self):
+        name = '{}.csv'.format(self._get_hash())
+        path = os.path.join(self.shopinfo_dir, name)
+        return path
 
     def _get_shopinfo_from_url(self):
         content = None
@@ -37,27 +40,39 @@ class Shopinfo(object):
                 if len(r.content) > 0:
                     content = r.content
         except requests.exceptions.ConnectionError:
-            print('connection aborted: {}'.format(shopinfo_url))
+            print('connection aborted: {} {}'.format(
+                self.url, self._get_hash()))
         except requests.exceptions.InvalidSchema:
-            print('invalid schema: {}'.format(shopinfo_url))
+            print('invalid schema: {} {}'.format(
+                self.url, self._get_hash()))
         except requests.exceptions.TooManyRedirects:
-            print('too many redirects: {}'.format(shopinfo_url))
+            print('too many redirects: {} {}'.format(
+                self.url, self._get_hash()))
         except requests.exceptions.InvalidURL:
-            print('invalid url: {}'.format(shopinfo_url))
+            print('invalid url: {} {}'.format(
+                self.url, self._get_hash()))
+        except requests.exceptions.ReadTimeout:
+            print('read timeout: {} {}'.format(
+                self.url, self._get_hash()))
         return content
 
-    @property
-    def shopinfo_str(self):
-        if not os.path.exists(self.shopinfo_path):
+    def download_shopinfo_xml(self):
+        if not os.path.exists(self.path):
             if not os.path.exists(self.shopinfo_dir):
                 os.makedirs(self.shopinfo_dir)
             shopinfo_str = self._get_shopinfo_from_url()
-            with open(self.shopinfo_path, 'wb') as f:
-                f.write(shopinfo_str)
-        else:
-            shopinfo_str = None
-            with open(self.shopinfo_path, 'rb') as f:
-                shopinfo_str = f.read()
+            with open(self.path, 'wb') as f:
+                if shopinfo_str is not None:
+                    f.write(shopinfo_str)
+                else:
+                    f.write(b'')
+
+    @property
+    def shopinfo_str(self):
+        if not os.path.exists(self.path):
+            self.download_shopinfo_xml()
+        with open(self.path, 'rb') as f:
+            shopinfo_str = f.read()
         return shopinfo_str
 
     @property
@@ -166,12 +181,16 @@ class Shopinfo(object):
             return self.feed_path
         if not os.path.exists(self.feed_dir):
             os.makedirs(self.feed_dir)
-        r = requests.get(self.csv_url, stream=True)
-        with open(self.feed_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=1024):
-                if chunk: # filter out keep-alive new chunks
-                    f.write(chunk)
-                    f.flush()
+        try:
+            r = requests.get(self.csv_url, stream=True)
+            with open(self.feed_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=1024):
+                    if chunk: # filter out keep-alive new chunks
+                        f.write(chunk)
+                        f.flush()
+        except requests.exceptions.ConnectionError:
+            print('connection aborted: {} {}'.format(
+                self.url, self._get_hash()))
         return self.feed_path
 
     @property
@@ -181,7 +200,51 @@ class Shopinfo(object):
                 os.makedirs(self.feed_dir)
             self.download_feed_csv()
 
-        df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
-                         encoding=self.encoding)
-        df.rename(columns=self._column_lookup, inplace=True)
+        df = None
+        try:
+            df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
+                             encoding=self.encoding)
+            df.rename(columns=self._column_lookup, inplace=True)
+        except UnicodeDecodeError:
+            print('UnicodeDecodeError: {}'.format(self.path))
+        except pd.parser.CParserError:
+            print('pandas parser error: {}'.format(self.path))
         return df
+
+
+class ShopinfoWorker(Thread):
+    def __init__(self, queue):
+        Thread.__init__(self)
+        self.queue = queue
+
+    def run(self):
+        while True:
+            shopinfo, method_name = self.queue.get()
+            result = getattr(shopinfo, method_name)()
+            self.queue.task_done()
+
+
+def start_workers(queue, num=10):
+    for _ in range(num):
+        worker = ShopinfoWorker(queue)
+        worker.daemon = True
+        worker.start()
+
+def get_shopinfos_from_urls(shopinfo_urls):
+    queue = Queue()
+    start_workers(queue)
+    shopinfos = []
+    for shopinfo_url in shopinfo_urls:
+        shopinfo = Shopinfo(shopinfo_url)
+        queue.put((shopinfo, 'download_shopinfo_xml'))
+        shopinfos.append(shopinfo)
+    queue.join()
+    return shopinfos
+
+def get_feed_for_shopinfos(shopinfos):
+    queue = Queue()
+    start_workers(queue)
+    for shopinfo in shopinfos:
+        queue.put((shopinfo, 'download_feed_csv'))
+    queue.join()
+    return shopinfos
