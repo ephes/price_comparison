@@ -9,6 +9,8 @@ from hashlib import md5
 import requests
 import pandas as pd
 
+from util import Ean
+
 
 class Shopinfo:
     def __init__(self, url, feed_dir='feeds',
@@ -16,6 +18,7 @@ class Shopinfo:
         self.url = url
         self.feed_dir = feed_dir
         self.shopinfo_dir = shopinfo_dir
+        self.ean = Ean()
 
     def _get_hash(self):
         return md5(self.url.encode('utf8')).hexdigest()
@@ -205,12 +208,25 @@ class Shopinfo:
             df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
                              encoding=self.encoding)
             df.rename(columns=self._column_lookup, inplace=True)
+            if "'" in df.columns[0]:
+                df.columns = [c.replace("'", "") for c in df.columns]
+            if len(df.columns) < 3:
+                df = None
         except UnicodeDecodeError:
             print('UnicodeDecodeError: {}'.format(self.path))
         except pd.parser.CParserError:
             print('pandas parser error: {}'.format(self.path))
         return df
 
+    @property
+    def valid_ean_df(self):
+        df = self.dataframe
+        if df is not None:
+            print(df.columns)
+            df = df[~df.ean.isnull()]
+            df.ean = df.ean.apply(self.ean.norm_or_nan)
+            df = df[~df.ean.isnull()]
+        return df
 
 class ShopinfoWorker(Thread):
     def __init__(self, queue):
