@@ -69,7 +69,7 @@ class Shopinfo(object):
     @property
     def encoding(self):
         lines = self.shopinfo_str.split(b'\n')
-        p = re.compile(b'encoding="(?P<encoding>.*)"')
+        p = re.compile(b'encoding="(?P<encoding>.*?)"')
         m = p.search(lines[0])
         print(lines[0], m)
         if m is not None:
@@ -101,6 +101,10 @@ class Shopinfo(object):
             column_type = mapping.attrib['type']
             cols.append((column_num, column_name, column_type))
         return cols
+
+    @property
+    def _column_lookup(self):
+        return {k: v for num, k, v in self.mappings}
 
     @property
     def has_ean(self):
@@ -136,7 +140,7 @@ class Shopinfo(object):
     def csv_lineend(self):
         schars = self.tabular.find('CSV/SpecialCharacters').attrib
         return schars.get('lineend')
-    
+
     @property
     def product_count(self):
         product_count = None
@@ -174,4 +178,5 @@ class Shopinfo(object):
     def get_dataframe(self):
         df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
                          encoding=self.encoding)
+        df.rename(columns=self._column_lookup, inplace=True)
         return df
