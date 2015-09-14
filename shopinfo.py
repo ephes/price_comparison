@@ -1,19 +1,70 @@
 import os
 import re
 import requests
+import pandas as pd
 import xml.etree.ElementTree as ET
 
 from hashlib import md5
 
 
 class Shopinfo(object):
-    def __init__(self, shopinfo, feed_dir='feeds'):
-        self.root = ET.fromstring(shopinfo)
-        if self.root is None:
-            return None
+    def __init__(self, url, feed_dir='feeds',
+                 shopinfo_dir='shopinfos'):
+        self.url = url
         self.feed_dir = feed_dir
-        self.feed_path = None
-        self.shopinfo_str = shopinfo
+        self.shopinfo_dir = shopinfo_dir
+
+    def _get_hash(self):
+        return md5(self.url.encode('utf8')).hexdigest()
+
+    @property
+    def feed_path(self):
+        feed_name = '{}.csv'.format(self._get_hash())
+        feed_path = os.path.join(self.feed_dir, feed_name)
+        return feed_path
+
+    @property
+    def shopinfo_path(self):
+        shopinfo_name = '{}.csv'.format(self._get_hash())
+        shopinfo_path = os.path.join(self.shopinfo_dir, shopinfo_name)
+        return shopinfo_path
+
+    def _get_shopinfo_from_url(self):
+        content = None
+        try:
+            r = requests.get(self.url, timeout=10)
+            if r.status_code == requests.codes.ok:
+                if len(r.content) > 0:
+                    content = r.content
+        except requests.exceptions.ConnectionError:
+            print('connection aborted: {}'.format(shopinfo_url))
+        except requests.exceptions.InvalidSchema:
+            print('invalid schema: {}'.format(shopinfo_url))
+        except requests.exceptions.TooManyRedirects:
+            print('too many redirects: {}'.format(shopinfo_url))
+        except requests.exceptions.InvalidURL:
+            print('invalid url: {}'.format(shopinfo_url))
+        return content
+
+    @property
+    def shopinfo_str(self):
+        if not os.path.exists(self.shopinfo_path):
+            if not os.path.exists(self.shopinfo_dir):
+                os.makedirs(self.shopinfo_dir)
+            shopinfo_str = self._get_shopinfo_from_url()
+            with open(self.shopinfo_path, 'wb') as f:
+                f.write(shopinfo_str)
+        else:
+            shopinfo_str = None
+            with open(self.shopinfo_path, 'rb') as f:
+                shopinfo_str = f.read()
+        return shopinfo_str
+
+    @property
+    def root(self):
+        if not hasattr(self, '_root'):
+            self._root = ET.fromstring(self.shopinfo_str)
+        return self._root
 
     @property
     def encoding(self):
@@ -30,7 +81,7 @@ class Shopinfo(object):
         return self.root.find('Name').text
     
     @property
-    def url(self):
+    def shop_url(self):
         return self.root.find('Url').text
     
     @property
@@ -76,7 +127,10 @@ class Shopinfo(object):
     @property
     def csv_delimiter(self):
         schars = self.tabular.find('CSV/SpecialCharacters').attrib
-        return schars['delimiter']
+        delimiter = schars['delimiter']
+        if delimiter == '[tab]':
+            delimiter = '\t'
+        return delimiter
 
     @property
     def csv_lineend(self):
@@ -105,18 +159,19 @@ class Shopinfo(object):
         return categories
 
     def download_feed_csv(self):
+        if os.path.exists(self.feed_path):
+            return self.feed_path
         if not os.path.exists(self.feed_dir):
             os.makedirs(self.feed_dir)
-        feed_name = '{}.csv'.format(
-            md5(self.csv_url.encode('utf8')).hexdigest())
-        feed_path = os.path.join(self.feed_dir, feed_name)
-        if os.path.exists(feed_path):
-            return feed_path
         r = requests.get(self.csv_url, stream=True)
-        with open(feed_path, 'wb') as f:
+        with open(self.feed_path, 'wb') as f:
             for chunk in r.iter_content(chunk_size=1024):
                 if chunk: # filter out keep-alive new chunks
                     f.write(chunk)
                     f.flush()
-        self.feed_path = feed_path
         return self.feed_path
+
+    def get_dataframe(self):
+        df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
+                         encoding=self.encoding)
+        return df

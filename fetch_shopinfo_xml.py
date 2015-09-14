@@ -128,7 +128,12 @@ def main(args):
     print(len(ean_shopinfos))
     ean_shopinfos = Parallel(n_jobs=8)(
         delayed(fetch_feed_csv)(shopinfo) for shopinfo in ean_shopinfos)
-
+    for shopinfo in ean_shopinfos:
+        if shopinfo.feed_path is not None:
+            print(shopinfo.mappings)
+            print(shopinfo.csv_delimiter)
+            df = shopinfo.get_dataframe()
+            print(df.columns)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
