@@ -13,6 +13,16 @@ from util import Ean
 
 
 class Shopinfo:
+    columns = [
+        'privateid',
+        'name',
+        'shortdescription',
+        'brand',
+        'ean',
+        'price',
+        'type',
+    ]
+
     def __init__(self, url, feed_dir='feeds',
                  shopinfo_dir='shopinfos'):
         self.url = url
@@ -56,6 +66,9 @@ class Shopinfo:
                 self.url, self._get_hash()))
         except requests.exceptions.ReadTimeout:
             print('read timeout: {} {}'.format(
+                self.url, self._get_hash()))
+        except requests.packages.urllib3.exceptions.LocationParseError:
+            print('broken url: {} {}'.format(
                 self.url, self._get_hash()))
         return content
 
@@ -115,7 +128,7 @@ class Shopinfo:
         for mapping in mappings:
             column_num = int(mapping.attrib['column'])
             column_name = mapping.attrib['columnName']
-            column_type = mapping.attrib['type']
+            column_type = mapping.attrib.get('type', column_name)
             cols.append((column_num, column_name, column_type))
         return cols
 
@@ -194,6 +207,15 @@ class Shopinfo:
         except requests.exceptions.ConnectionError:
             print('connection aborted: {} {}'.format(
                 self.url, self._get_hash()))
+        except requests.exceptions.MissingSchema:
+            print('missing schema: {} {}'.format(
+                self.url, self._get_hash()))
+        except TypeError:
+            print('something broken: {} {}'.format(
+                self.url, self._get_hash()))
+        # touch file
+        with open(self.feed_path, 'a'):
+            os.utime(self.feed_path, None)
         return self.feed_path
 
     @property
@@ -206,7 +228,7 @@ class Shopinfo:
         df = None
         try:
             df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
-                             encoding=self.encoding)
+                             encoding=self.encoding, error_bad_lines=False)
             df.rename(columns=self._column_lookup, inplace=True)
             if "'" in df.columns[0]:
                 df.columns = [c.replace("'", "") for c in df.columns]
@@ -216,6 +238,8 @@ class Shopinfo:
             print('UnicodeDecodeError: {}'.format(self.path))
         except pd.parser.CParserError:
             print('pandas parser error: {}'.format(self.path))
+        except ValueError:
+            print('pandas no columns to parse error: {}'.format(self.path))
         return df
 
     @property
@@ -223,10 +247,18 @@ class Shopinfo:
         df = self.dataframe
         if df is not None:
             print(df.columns)
-            df = df[~df.ean.isnull()]
-            df.ean = df.ean.apply(self.ean.norm_or_nan)
-            df = df[~df.ean.isnull()]
-        return df
+            #df.ean = df.ean.apply(self.ean.norm_or_nan)
+            #df = df[~df.ean.isnull()]
+            try:
+                df = df[~df.ean.isnull()]
+                df = df[self.columns]
+                return df
+            except KeyError:
+                return None
+            except AttributeError:
+                return None
+        else:
+            return None
 
 class ShopinfoWorker(Thread):
     def __init__(self, queue):
