@@ -250,7 +250,7 @@ class Shopinfo:
             #df.ean = df.ean.apply(self.ean.norm_or_nan)
             #df = df[~df.ean.isnull()]
             try:
-                df = df[~df.ean.isnull()]
+                #df = df[~df.ean.isnull()]
                 df = df[self.columns]
                 return df
             except KeyError:
