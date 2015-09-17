@@ -6,6 +6,7 @@ from threading import Thread
 import xml.etree.ElementTree as ET
 
 import requests
+import numpy as np
 import pandas as pd
 
 from util import Ean
@@ -229,36 +230,36 @@ class Shopinfo:
         try:
             df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
                              encoding=self.encoding, error_bad_lines=False)
+        except UnicodeDecodeError:
+            try:
+                df = pd.read_csv(self.feed_path, delimiter=self.csv_delimiter,
+                                 encoding='latin1', error_bad_lines=False)
+                print('latin1: {} {}'.format(self.feed_path, df.shape))
+            except UnicodeDecodeError:
+                print('UnicodeDecodeError: {}'.format(self.feed_path))
+        except pd.parser.CParserError:
+            print('pandas parser error: {}'.format(self.feed_path))
+        except ValueError:
+            print('pandas no columns to parse error: {}'.format(self.feed_path))
+        if df is not None:
             df.rename(columns=self._column_lookup, inplace=True)
             if "'" in df.columns[0]:
                 df.columns = [c.replace("'", "") for c in df.columns]
+            for col in self.columns:
+                if col not in df:
+                    df[col] = np.nan
+            df = df[self.columns]
             if len(df.columns) < 3:
                 df = None
-        except UnicodeDecodeError:
-            print('UnicodeDecodeError: {}'.format(self.path))
-        except pd.parser.CParserError:
-            print('pandas parser error: {}'.format(self.path))
-        except ValueError:
-            print('pandas no columns to parse error: {}'.format(self.path))
         return df
 
     @property
     def valid_ean_df(self):
         df = self.dataframe
         if df is not None:
-            print(df.columns)
-            #df.ean = df.ean.apply(self.ean.norm_or_nan)
-            #df = df[~df.ean.isnull()]
-            try:
-                #df = df[~df.ean.isnull()]
-                df = df[self.columns]
-                return df
-            except KeyError:
-                return None
-            except AttributeError:
-                return None
-        else:
-            return None
+            df.ean = df.ean.apply(self.ean.norm_or_nan)
+            df = df[~df.ean.isnull()]
+        return df
 
 class ShopinfoWorker(Thread):
     def __init__(self, queue):
