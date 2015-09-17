@@ -4,7 +4,6 @@ import re
 from queue import Queue
 from threading import Thread
 import xml.etree.ElementTree as ET
-from hashlib import md5
 
 import requests
 import pandas as pd
@@ -23,25 +22,26 @@ class Shopinfo:
         'type',
     ]
 
+    cls_shop_id = 0
+
     def __init__(self, url, feed_dir='feeds',
                  shopinfo_dir='shopinfos'):
         self.url = url
         self.feed_dir = feed_dir
         self.shopinfo_dir = shopinfo_dir
         self.ean = Ean()
-
-    def _get_hash(self):
-        return md5(self.url.encode('utf8')).hexdigest()
+        self.shop_id = Shopinfo.cls_shop_id
+        Shopinfo.cls_shop_id += 1
 
     @property
     def feed_path(self):
-        feed_name = '{}.csv'.format(self._get_hash())
+        feed_name = '{}.csv'.format(self.shop_id)
         feed_path = os.path.join(self.feed_dir, feed_name)
         return feed_path
 
     @property
     def path(self):
-        name = '{}.csv'.format(self._get_hash())
+        name = '{}.xml'.format(self.shop_id)
         path = os.path.join(self.shopinfo_dir, name)
         return path
 
@@ -54,22 +54,22 @@ class Shopinfo:
                     content = r.content
         except requests.exceptions.ConnectionError:
             print('connection aborted: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         except requests.exceptions.InvalidSchema:
             print('invalid schema: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         except requests.exceptions.TooManyRedirects:
             print('too many redirects: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         except requests.exceptions.InvalidURL:
             print('invalid url: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         except requests.exceptions.ReadTimeout:
             print('read timeout: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         except requests.packages.urllib3.exceptions.LocationParseError:
             print('broken url: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         return content
 
     def download_shopinfo_xml(self):
@@ -206,13 +206,13 @@ class Shopinfo:
                         f.flush()
         except requests.exceptions.ConnectionError:
             print('connection aborted: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         except requests.exceptions.MissingSchema:
             print('missing schema: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         except TypeError:
             print('something broken: {} {}'.format(
-                self.url, self._get_hash()))
+                self.url, self.shop_id))
         # touch file
         with open(self.feed_path, 'a'):
             os.utime(self.feed_path, None)
