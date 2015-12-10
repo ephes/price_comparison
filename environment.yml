@@ -1,0 +1,6 @@
+name: elmar
+dependencies:
+- python
+- pandas
+- scikit-learn
+- jupyter

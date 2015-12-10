@@ -1,4 +1,0 @@
-ipython
-requests
-pandas
-scikit-learn
