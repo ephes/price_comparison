@@ -4,3 +4,8 @@ dependencies:
 - pandas
 - scikit-learn
 - jupyter
+- seaborn
+- networkx
+- pip
+- pip:
+    - igraph
