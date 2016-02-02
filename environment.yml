@@ -1,4 +1,4 @@
-name: elmar
+name: price_comparison
 dependencies:
 - python
 - pandas
@@ -6,6 +6,7 @@ dependencies:
 - jupyter
 - seaborn
 - networkx
+- requests
 - pip
 - pip:
     - igraph
