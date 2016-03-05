@@ -64,7 +64,7 @@ class ElmarPage:
         with open(self.path, 'r') as f:
             for line in f:
                 shopinfo_urls.append(line.rstrip())
-        return shopinfo_urls         
+        return shopinfo_urls
 
 
 class ElmarWorker(Thread):
@@ -101,6 +101,6 @@ def get_shopinfo_urls(shopcount, blocksize):
         results.extend(result_queue.get())
         print(work_count)
         work_count -= 1
-        
+
     job_queue.join()
     return results
